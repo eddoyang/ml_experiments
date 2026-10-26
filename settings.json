@@ -1,0 +1,9 @@
+{
+  "python.defaultInterpreterPath": ".venv/bin/python",
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true
+  },
+  "jupyter.interactiveWindow.textEditor.executeSelection": true,
+  "files.exclude": { "**/__pycache__": true }
+}
