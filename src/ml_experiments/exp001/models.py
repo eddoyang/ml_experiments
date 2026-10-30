@@ -10,6 +10,7 @@ from torchvision.models import (
 from ml_experiments.exp001.config import Config
 from ml_experiments.exp001.data import get_superclass_ids
 
+
 def make_linear_head(in_features, out_features, seed=Config.seed):
     with torch.random.fork_rng(devices=[]):
         torch.manual_seed(seed)
@@ -43,6 +44,18 @@ def build_coarse_head(pretrained_head, class_names, initialization):
     raise ValueError(
         f"Unknown initialization: {initialization}"
     )
+
+def add_others_row(trained_head, architecture):
+    pretrained = get_head(load_pretrained(architecture), architecture)
+    others_ids = get_superclass_ids(include_others=True)["others"]
+
+    new_head = nn.Linear(trained_head.in_features, trained_head.out_features + 1)
+    with torch.no_grad():
+        new_head.weight[:-1].copy_(trained_head.weight)
+        new_head.bias[:-1].copy_(trained_head.bias)
+        new_head.weight[-1].copy_(pretrained.weight[others_ids].mean(dim=0))
+        new_head.bias[-1].copy_(pretrained.bias[others_ids].mean())
+    return new_head.to(trained_head.weight.device)
 
 
 def load_pretrained(architecture):

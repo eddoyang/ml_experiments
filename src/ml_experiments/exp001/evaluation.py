@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 from tqdm import tqdm
 
+
 @torch.no_grad()
 def evaluate_superclass_model(model, loader, device, num_classes):
     model.eval()
