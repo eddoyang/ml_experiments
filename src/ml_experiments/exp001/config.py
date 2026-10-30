@@ -13,7 +13,7 @@ class Config:
     results_dir: Path = Path(__file__).resolve().parent / "figures"
     seed: int = 42
     batch_size: int = 32
-    epochs: int = 15
+    epochs: int = 10
     lr: float = 1e-4
     models: list[str] = field(default_factory=lambda: ["resnet18", "resnet50", "vgg16"])
     aggregation: str = "mean"
