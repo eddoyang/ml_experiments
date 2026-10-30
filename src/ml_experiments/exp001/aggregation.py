@@ -1,3 +1,5 @@
+import statistics
+
 import torch
 
 from ml_experiments.common.plotting import plot_history
@@ -104,27 +106,58 @@ def compare_trained_heads(cfg, architecture, seed=None):
 
     return results
 
+def mean_std(values):
+    std = statistics.stdev(values) if len(values) > 1 else 0.0
+    return statistics.mean(values), std
+
+
+def print_seed_summary(trained_runs):
+    seeds = list(trained_runs)
+    methods = trained_runs[seeds[0]].keys()
+
+    print(f"\n{'=' * 60}\nAveraged over seeds {seeds}\n{'=' * 60}")
+    for method in methods:
+        for split, label in [("after", "trained"), ("after_others", "trained + others")]:
+            accs = [trained_runs[s][method][split]["accuracy"] for s in seeds]
+            m, sd = mean_std(accs)
+            runs = ", ".join(f"{a:.1%}" for a in accs)
+            print(f"  {method:17s} {label:17s} {m:.2%} ± {sd:.2%}   ({runs})")
+
+        rates = [trained_runs[s][method]["after_others"]["others_rate"] for s in seeds]
+        m, sd = mean_std(rates)
+        print(f"  {method:17s} {'-> others':17s} {m:.2%} ± {sd:.2%}")
+
+
+def average_histories(histories):
+    return {key: [statistics.mean(h[key][i] for h in histories) for i in range(len(histories[0][key]))]
+            for key in histories[0]}
+
 
 # ───────────────────────── Run ─────────────────────────
 
 def run(cfg: Config | None = None):
     cfg = cfg or Config()
     results = {}
-    # SEEDS = [42, 1234, 2026] optional seeds for multiple runs
+    SEEDS = [42, 123, 456]
 
     for architecture in ["resnet18"]:
-        result_zeroshot = compare_superclass_methods(cfg, architecture)
-        result_trained = compare_trained_heads(cfg, architecture)
+        result_zeroshot = compare_superclass_methods(cfg, architecture) # No need to seed
+        trained_runs = {seed: compare_trained_heads(cfg, architecture, seed=seed) for seed in SEEDS}
+        print_seed_summary(trained_runs)
 
-        histories = {name: r["history"] for name, r in result_trained.items()}
+        methods = trained_runs[SEEDS[0]].keys()
+        histories = {
+            name: average_histories([trained_runs[s][name]["history"] for s in SEEDS])
+            for name in methods
+        }
         plot_history(
             histories,
-            title=f"{architecture} | trained heads",
+            title=f"{architecture} | trained heads (mean of {len(SEEDS)} seeds)",
             save_path=cfg.results_dir / f"{architecture}_trained_history.png",
         )
 
         results[architecture, "zero-shot"] = result_zeroshot
-        results[architecture, "trained"] = result_trained
+        results[architecture, "trained"] = trained_runs
 
     return results
 

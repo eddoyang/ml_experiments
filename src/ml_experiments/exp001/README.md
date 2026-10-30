@@ -22,8 +22,7 @@ I tested the zero-shot baseline models on both the datasets that included and ex
 | **Train augmentation** | Random horizontal flip, ±15° rotation, `RandomResizedCrop(224)`, `ColorJitter(1)` |
 | **Validation preprocessing** | Resize to 256, center crop 224 |
 | **Normalization** | ImageNet mean/std |
-| **Seed** | 42 (re-seeded before each model, so both see the same batch order) |
-| **Hardware** | Apple Silicon GPU (MPS) |
+| **Seeds** | 42, 123, 456 for training. Results reported as mean ± std. Zero-shot results have no randomness, so they come from a single run |
 
 
  **Subclasses Grouped Below**<br>
@@ -50,8 +49,7 @@ My hypothesis going into this experiment was that probability aggregation would 
 
 ## Results
 
-ResNet18 pretrained on ImageNet, evaluated on the 500-image validation set (50 per class), seed 42.
-One image = 0.2 percentage points.
+ResNet18 pretrained on ImageNet, evaluated on the 500-image validation set (50 per class). Trained results are mean ± std over 3 seeds; per-class tables are from seed 42.
 
 ### Zero-shot (no training)
 
@@ -82,13 +80,13 @@ One image = 0.2 percentage points.
 
 ### Head-only training (frozen backbone, 10 epochs, Adam, lr 1e-4)
 
-| Method | Trainable params | Before | After | Gain |
-|---|---:|---:|---:|---:|
-| Weight averaging | 5,130 | 92.4% | 95.6% | +3.2 |
-| **Probability sum** | 513,000 | 95.6% | **97.2%** | +1.6 |
+| Method | Trainable params | Before | After (mean ± std) | Per seed (42 / 123 / 456) | Gain |
+|---|---:|---:|---:|---:|---:|
+| Weight averaging | 5,130 | 92.4% | 95.3% ± 0.3 | 95.6 / 95.0 / 95.4 | +2.9 |
+| **Probability sum** | 513,000 | 95.6% | **96.9% ± 0.3** | 97.2 / 96.6 / 96.8 | +1.3 |
 
 <details>
-<summary>Per-class accuracy after training</summary>
+<summary>Per-class accuracy after training (seed 42)</summary>
 
 | Class | Weight avg | Prob sum |
 |---|---:|---:|
@@ -105,19 +103,19 @@ One image = 0.2 percentage points.
 
 </details>
 
-![Training and validation loss/accuracy per epoch](figures/resnet18_trained_history.png)
+![Training and validation loss/accuracy per epoch, mean of 3 seeds](figures/resnet18_trained_history.png)
 
 ### Trained heads evaluated with "others"
 
 The heads above were trained without "others"; here an "others" output is added only at evaluation. For probability sum, the trained 1000-class head is re-grouped with the 774-class "others" bucket. For weight averaging, the original averaged "others" row (untrained) is appended to the trained 10-class head.
 
-| Method | Zero-shot + others | Trained + others | Predicted as "others" (zero-shot → trained) |
+| Method | Zero-shot + others | Trained + others (mean ± std) | Predicted as "others" (zero-shot → trained) |
 |---|---:|---:|---:|
-| **Weight averaging** | 92.4% | **95.6%** | 0.0% → 0.0% |
-| Probability sum | 83.0% | 88.8% | 16.4% → 10.6% |
+| **Weight averaging** | 92.4% | **95.3% ± 0.3** | 0.0% → 0.0% |
+| Probability sum | 83.0% | 88.9% ± 0.2 | 16.4% → 10.5% ± 0.2 |
 
 <details>
-<summary>Per-class accuracy, trained + others</summary>
+<summary>Per-class accuracy, trained + others (seed 42)</summary>
 
 | Class | Weight avg + others | Prob sum + others (→ others) |
 |---|---:|---:|
@@ -138,12 +136,12 @@ The heads above were trained without "others"; here an "others" output is added 
 
 - **Probability sum beats weight averaging zero-shot** (95.6% vs 92.4%), and its biggest gain is on **dog** (84% → 100%), the superclass with the most subclasses (118). Summing favours large superclasses; the small ones aeroplane and cat lose slightly.
 - **Adding "others" hurts only probability sum.** Its "others" bucket sums 774 classes and absorbs 16.4% of images, especially the small superclasses bottle and chair (44% each). The averaged "others" row in weight averaging is never predicted.
-- **After training, the gap narrows** from 3.2 to 1.6 points: weight averaging improves more (+3.2 vs +1.6), but probability sum finishes ahead on 3 classes (bus, car, chair) and ties on the other 7.
-- **Training partly fixes the "others" problem for probability sum.** Images predicted as "others" drop from 16.4% to 10.6% and accuracy rises from 83.0% to 88.8%: training raises the 226 grouped classes while the 774 unrelated classes get no gradient. Bottle and chair are still hit hardest (24% and 30% sent to "others"). Weight averaging still never predicts "others".
-- **Validation accuracy is higher than training accuracy** (~97% vs ~88%) because of strong training augmentation for invariance (`RandomResizedCrop`, `ColorJitter(1)`); validation images aren't augmented.
+- **After training, probability sum stays ahead, and the gap is consistent across seeds.** It averages 96.9% vs 95.3% (a 1.5-point gap), wins on every seed by 1.4–1.6 points, and the two methods' per-seed ranges don't overlap (96.6–97.2% vs 95.0–95.6%). Weight averaging improves more during training (+2.9 vs +1.3), narrowing but not closing the zero-shot gap.
+- **Training partly fixes the "others" problem for probability sum.** Images predicted as "others" drop from 16.4% to 10.5% and accuracy rises from 83.0% to 88.9%: training raises the 226 grouped classes while the 774 unrelated classes get no gradient. Bottle and chair are still hit hardest (24% and 30% sent to "others" in seed 42). Weight averaging still never predicts "others".
+- **Validation accuracy is higher than training accuracy** (~97% vs ~88%) because of strong training augmentation for invariance; validation images aren't augmented, thus the train set is harder.
 
 
 ## Conclusion
 
-The results support both parts of the hypothesis. Without "others", probability aggregation was stronger zero-shot (95.6% vs 92.4%) and remained ahead after head-only training (97.2% vs 95.6%), though weight averaging improved more during training (+3.2 vs +1.6 points), narrowing the gap. With "others", probability aggregation dropped to 83.0% as 16.4% of images were absorbed into the 774-class "others" bucket, while weight averaging was unaffected and never predicted "others". Training reduced this effect (88.8%, 10.6% predicted as "others") but did not remove it, so weight averaging remains the safer choice whenever an "others" class is present.
+The results support both parts of the hypothesis. Without "others", probability aggregation was stronger zero-shot (95.6% vs 92.4%) and remained ahead after head-only training (96.9% ± 0.3 vs 95.3% ± 0.3 over 3 seeds), though weight averaging improved more during training (+2.9 vs +1.3 points), narrowing the gap. The advantage held on every seed, so it is unlikely to be run-to-run noise. With "others", probability aggregation dropped to 83.0% as 16.4% of images were absorbed into the 774-class "others" bucket, while weight averaging was unaffected and never predicted "others". Training reduced this effect (88.9%, 10.5% predicted as "others") but did not remove it, so weight averaging remains the safer choice whenever an "others" class is present.
 
