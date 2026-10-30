@@ -12,15 +12,7 @@ def _split_key(key):
         return split, metric
     return None, key
 
-
 def plot_history(histories, title=None, metrics=None, save_path=None, show=True):
-    """Plot per-epoch training curves.
-
-    histories: a single history dict ({"train_loss": [...], "val_acc": [...], ...}) or a
-        dict of {run_name: history} to overlay several runs.
-    metrics: metric names to plot (e.g. ["loss", "acc"]); defaults to every metric found.
-    Each metric gets its own subplot, each run its own color, each split its own line style.
-    """
     if all(isinstance(v, (list, tuple)) for v in histories.values()):
         histories = {None: histories}
 
