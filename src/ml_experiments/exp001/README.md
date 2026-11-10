@@ -80,7 +80,7 @@ ResNet18 pretrained on ImageNet, evaluated on the 500-image validation set (50 p
 
 ### Head-only training (frozen backbone, 10 epochs, Adam, lr 1e-4)
 
-| Method | Trainable params | Before | After (mean ± std) | Per seed (42 / 123 / 456) | Gain |
+| Method | Trainable params | Zero-shot | After Tuning (mean ± std) | Per seed (42 / 123 / 456) | Gain |
 |---|---:|---:|---:|---:|---:|
 | Weight averaging | 5,130 | 92.4% | 95.3% ± 0.3 | 95.6 / 95.0 / 95.4 | +2.9 |
 | **Probability sum** | 513,000 | 95.6% | **96.9% ± 0.3** | 97.2 / 96.6 / 96.8 | +1.3 |
